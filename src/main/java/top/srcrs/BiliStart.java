@@ -22,6 +22,8 @@ public class BiliStart {
     private static final UserData USER_DATA = UserData.getInstance();
     /** 访问成功 */
     private static final String SUCCESS = "0";
+    /** 账号未登录，即 Cookie 已失效 */
+    private static final String NOT_LOGGED_IN = "-101";
     /** 获取Config配置的对象 */
     private static final Config CONFIG = Config.getInstance();
     public static void main(String ...args) {
@@ -29,13 +31,10 @@ public class BiliStart {
             log.error("💔请在Github Secrets中添加你的Cookie信息");
             return;
         }
-        /* 账户信息是否失效 */
-        boolean flag = true;
         /* 读取yml文件配置信息 */
         ReadConfig.transformation("/config.yml");
         /* 如果用户账户有效 */
         if(check()){
-            flag =false;
             log.info("【用户名】: {}",StringUtil.hideString(USER_DATA.getUname(),1,1,'*'));
             log.info("【硬币】: {}", USER_DATA.getMoney());
             log.info("【经验】: {}", USER_DATA.getCurrentExp());
@@ -53,8 +52,6 @@ public class BiliStart {
             }
             log.info("本次任务运行完毕。");
 
-        } else {
-            log.info("💔账户已失效，请在Secrets重新绑定你的信息");
         }
 
         // server酱
@@ -68,10 +65,6 @@ public class BiliStart {
         /* 此时数组的长度为4，就默认填写的是填写的钉钉 webHook 链接 */
         if(StringUtil.isNotBlank(System.getenv("DINGTALK"))){
             SendDingTalk.send(System.getenv("DINGTALK"));
-        }
-        /* 当用户失效工作流执行失败，github将会给邮箱发送运行失败信息 */
-        if(flag){
-            log.error("💔账户已失效，请在Secrets重新绑定你的信息");
         }
     }
 
@@ -125,37 +118,35 @@ public class BiliStart {
      * @Time 2020-10-13
      */
     public static boolean check(){
-        /* 连续登录 80 次，有一次登录成功即停止
-         * 每次失败后等待5秒钟
-         */
-        int num = 80;
-        while(num--!=0){
-            JSONObject jsonObject = Request.get("https://api.bilibili.com/x/web-interface/nav");
-            JSONObject object = jsonObject.getJSONObject("data");
-            String code = jsonObject.getString("code");
-            if(SUCCESS.equals(code)){
-                JSONObject levelInfo = object.getJSONObject("level_info");
-                /* 用户名 */
-                USER_DATA.setUname(object.getString("uname"));
-                /* 账户的uid */
-                USER_DATA.setMid(object.getString("mid"));
-                /* vip类型 */
-                USER_DATA.setVipType(object.getString("vipType"));
-                /* 硬币数 */
-                USER_DATA.setMoney(object.getBigDecimal("money"));
-                /* 经验 */
-                USER_DATA.setCurrentExp(levelInfo.getIntValue("current_exp"));
-                /* 大会员状态 */
-                USER_DATA.setVipStatus(object.getString("vipStatus"));
-                /* 钱包B币卷余额 */
-                USER_DATA.setCouponBalance(object.getJSONObject("wallet").getIntValue("coupon_balance"));
-                /* 升级到下一级所需要的经验 */
-                USER_DATA.setNextExp(levelInfo.getString("next_exp"));
-                /* 获取当前的等级 */
-                USER_DATA.setCurrentLevel(levelInfo.getString("current_level"));
-                return true;
-            }
-            Request.waitFor();
+        Request.UserAgent = InitUserAgent.getOne();
+        JSONObject jsonObject = Request.get("https://api.bilibili.com/x/web-interface/nav");
+        JSONObject object = jsonObject.getJSONObject("data");
+        String code = jsonObject.getString("code");
+        if(SUCCESS.equals(code)){
+            JSONObject levelInfo = object.getJSONObject("level_info");
+            /* 用户名 */
+            USER_DATA.setUname(object.getString("uname"));
+            /* 账户的uid */
+            USER_DATA.setMid(object.getString("mid"));
+            /* vip类型 */
+            USER_DATA.setVipType(object.getString("vipType"));
+            /* 硬币数 */
+            USER_DATA.setMoney(object.getBigDecimal("money"));
+            /* 经验 */
+            USER_DATA.setCurrentExp(levelInfo.getIntValue("current_exp"));
+            /* 大会员状态 */
+            USER_DATA.setVipStatus(object.getString("vipStatus"));
+            /* 钱包B币卷余额 */
+            USER_DATA.setCouponBalance(object.getJSONObject("wallet").getIntValue("coupon_balance"));
+            /* 升级到下一级所需要的经验 */
+            USER_DATA.setNextExp(levelInfo.getString("next_exp"));
+            /* 获取当前的等级 */
+            USER_DATA.setCurrentLevel(levelInfo.getString("current_level"));
+            return true;
+        }
+        if(NOT_LOGGED_IN.equals(code)){
+            log.info("💔账户已失效，请在Secrets重新绑定你的信息");
+            return false;
         }
         return false;
     }
