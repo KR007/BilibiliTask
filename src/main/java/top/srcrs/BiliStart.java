@@ -9,6 +9,8 @@ import top.srcrs.util.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -38,7 +40,6 @@ public class BiliStart {
             log.info("【用户名】: {}",StringUtil.hideString(USER_DATA.getUname(),1,1,'*'));
             log.info("【硬币】: {}", USER_DATA.getMoney());
             log.info("【经验】: {}", USER_DATA.getCurrentExp());
-            log.info("【等级】: {}",USER_DATA.getCurrentLevel());
             /* 动态执行task包下的所有java代码 */
             scanTask();
             /* 当用户等级为Lv6时，升级到下一级 next_exp 值为 -- 代表无穷大 */
@@ -75,12 +76,16 @@ public class BiliStart {
      * 因为部分任务是需要有顺序的去执行
      */
     private static void scanTask() {
-        List<String> classNameList = new ArrayList<>();
+        List<Class<?>> clazzList = new ArrayList<>();
         PackageScanner pack = new PackageScanner() {
             @Override
             public void dealClass(String className) {
                 try{
-                    classNameList.add(className);
+                    Class<?> clazz = Class.forName(className);
+                    // 判断类是否实现了接口Task
+                    if (Arrays.stream(clazz.getInterfaces()).parallel().anyMatch(taskI -> taskI.equals(Task.class))) {
+                        clazzList.add(clazz);
+                    }
                 } catch (Exception e){
                     log.error("💔反射获取对象错误 : ", e);
                 }
@@ -88,9 +93,9 @@ public class BiliStart {
         };
         pack.scannerPackage("top.srcrs.task");
 
-        classNameList.stream().sorted().forEach(className -> {
+        clazzList.stream().sorted(Comparator.comparing(Class::getName)).forEach(clazz -> {
             try{
-                Constructor<?> constructor = Class.forName(className).getConstructor();
+                Constructor<?> constructor = clazz.getConstructor();
                 Object object = constructor.newInstance();
                 Method method = object.getClass().getMethod("run");
                 method.invoke(object);
