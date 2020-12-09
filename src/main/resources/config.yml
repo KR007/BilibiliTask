@@ -21,10 +21,7 @@ upList:
 #进行漫画签到任务 [true,false]
 manga: true
 #优先送出即将过期礼物给此up的直播间,填写其 uid
-<<<<<<< HEAD
 upLive: 33069720
-=======
-upLive:
+
 #对于进行投币的视频选择是否点赞 , 默认不点赞 [0,1]
-selectLike: 0
->>>>>>> 42500790b1b43f231d09e1e23b1ad72c7ab88642
+selectLike: 1
